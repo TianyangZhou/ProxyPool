@@ -8,6 +8,7 @@ from request import PageRequest
 from bs4 import BeautifulSoup
 import logging
 import time
+from lxml import html
 
 
 class SpiderMeta(type):
@@ -55,25 +56,33 @@ class RewriteSpiderError(Exception):
 
 
 class XiciSpider(BaseSpider, metaclass=SpiderMeta):
-    start_url = 'https://www.xicidaili.com/nn/{}'
+    start_url = 'https://cn.proxy-tools.com/proxy/us?page={}'
 
     def get(self, step=1):
         urls = [self.start_url.format(page) for page in range(self._counter, self._counter+step)]
         proxies = []
         for url in urls:
             response = self._request.get_resp(url)
+            print(response.url)
             while response.status_code == 503:
                 self._logger.debug('%s 被反爬，开始使用代理' %
                                    self.__class__.__name__)
                 self._request.load_proxy()
                 time.sleep(5)
                 response = self._request.get_resp(url)
-            ip_list = BeautifulSoup(response.text, 'lxml').find('table', attrs={'id': 'ip_list'}).find_all('tr')
-            for one in ip_list[1:]:
-                tds = one.find_all('td')
-                ip = tds[1].get_text()
-                port = tds[2].get_text()
-                proxies.append(':'.join([ip, port]))
+            tree = html.fromstring(response.text)
+            # XPath to select the rows in the table
+            rows = tree.xpath('/html/body/div[1]/main/table/tbody/tr')
+
+            # Initialize an empty list to store proxies
+            proxies = []
+
+            # Iterate over the rows, starting from the second row (index 1)
+            for row in rows[1:]:
+                ip = row.xpath('td[1]/text()')[0]
+                port = 80
+                proxies.append(f'{ip}:{port}')
+            print(proxies)
             time.sleep(5)
         self._counter += step
         self._logger.debug('爬虫{}抓取了{}个代理'.format(self.__class__.__name__, len(proxies)))

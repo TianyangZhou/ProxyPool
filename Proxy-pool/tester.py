@@ -37,3 +37,4 @@ class UsabilityTester(object):
             tasks = [self.test_signal_proxy(proxy) for proxy in batch]
             loop.run_until_complete(asyncio.wait(tasks, loop=loop))
 
+
